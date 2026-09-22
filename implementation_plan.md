@@ -121,8 +121,17 @@ Obtain a live URL that returns HTTP `200` before implementing application logic.
 
 - [ ] Confirm the response is `200 OK`.
 
-### Step 3: Containerize the application (0:10–0:15)
+### Step 3: Containerize the application with OrbStack (0:10–0:15)
 
+- [ ] Install and start OrbStack on macOS if it is not already running.
+- [ ] Confirm the Docker-compatible CLI is connected to OrbStack:
+
+  ```bash
+  docker context show
+  docker info
+  ```
+
+- [ ] Keep using the standard `docker` CLI commands below; OrbStack provides the local container engine that executes them.
 - [ ] Create a `Dockerfile` based on `python:3.12-slim`.
 - [ ] Set a working directory.
 - [ ] Copy and install `requirements.txt` before copying application code to improve layer caching.
@@ -141,13 +150,13 @@ Obtain a live URL that returns HTTP `200` before implementing application logic.
   - coverage output
   - local database files
 - [ ] Create `.gitignore` for the same development artifacts and `.env`.
-- [ ] Build locally:
+- [ ] Build locally using OrbStack:
 
   ```bash
   docker build -t feature-flags .
   ```
 
-- [ ] Run the image:
+- [ ] Run the image on OrbStack:
 
   ```bash
   docker run --rm -p 8080:8080 -e PORT=8080 feature-flags
@@ -602,6 +611,7 @@ Demonstrate correctness with isolated tests and enforce it on every push and pul
 - [ ] Run:
 
   ```bash
+  # These container commands run through OrbStack.
   ruff check .
   pytest --cov=app --cov-report=term-missing
   docker build -t feature-flags .
@@ -619,7 +629,7 @@ Demonstrate correctness with isolated tests and enforce it on every push and pul
 - [ ] Install runtime and development dependencies.
 - [ ] Run `ruff check`.
 - [ ] Run tests with coverage.
-- [ ] Build the Docker image.
+- [ ] Build the container image with OrbStack.
 - [ ] Push the workflow.
 - [ ] Open the Actions tab and confirm the run starts.
 - [ ] Fix any environmental differences exposed by CI.
@@ -628,7 +638,7 @@ Demonstrate correctness with isolated tests and enforce it on every push and pul
 
 - Required behaviors and key errors are tested.
 - Tests are isolated and deterministic.
-- Lint, test, coverage, and Docker build pass locally.
+- Lint, test, coverage, and the OrbStack-backed container build pass locally.
 - GitHub Actions is green or actively running with enough time left to fix it.
 
 ### Suggested Commit
@@ -701,8 +711,9 @@ flowchart LR
   - Evaluating it.
   - Removing the override.
 - [ ] Document local setup with virtualenv and Uvicorn.
-- [ ] Document Docker setup.
-- [ ] If included, document Docker Compose with PostgreSQL.
+- [ ] Document local container setup with OrbStack.
+- [ ] Explain that OrbStack supports the standard `docker` and `docker compose` commands used by the project.
+- [ ] If included, document running PostgreSQL with Docker Compose through OrbStack.
 - [ ] Explain how to run lint and tests.
 - [ ] Explain deployment steps and required environment variables.
 - [ ] Document design decisions:
@@ -767,6 +778,7 @@ Leave a working, professional, and secure submission.
 - [ ] Run the complete local verification suite:
 
   ```bash
+  # OrbStack supplies the container engine for this build.
   ruff check .
   pytest --cov=app --cov-report=term-missing
   docker build -t feature-flags .
@@ -898,7 +910,7 @@ If time slips, cut work in this order:
 3. Sequence diagram; keep the architecture flowchart.
 4. Rich pagination metadata; keep bounded `limit` and `offset`.
 5. Separate `201` versus `200` behavior for override upsert; document one consistent response.
-6. Docker Compose; retain direct local and Docker instructions.
+6. Docker Compose; retain direct local and OrbStack container instructions.
 
 Do **not** cut:
 
@@ -923,7 +935,7 @@ Do **not** cut:
 - [ ] Production data is stored in PostgreSQL.
 - [ ] Tests and lint pass.
 - [ ] CI is green.
-- [ ] Docker image builds.
+- [ ] Container image builds successfully with OrbStack.
 - [ ] Architecture diagram renders.
 - [ ] README explains setup, use, deployment, decisions, and tradeoffs.
 - [ ] No credentials or local artifacts are committed.
