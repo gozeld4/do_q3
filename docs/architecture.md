@@ -271,3 +271,88 @@ A **container image** is a packaged filesystem and startup configuration used to
 - **Replica**: another running copy of the application used for capacity or availability.
 - **Rollback**: cancel the uncommitted changes in a failed database transaction.
 - **Source of truth**: the authoritative place where data is stored; here, that is the database.
+
+## Testing locally
+
+### Start the service
+
+```bash
+rm -f feature_flags.db
+CACHE_TTL_SECONDS=15 .venv/bin/uvicorn app.main:app --reload --port 8000
+```
+
+Removing `feature_flags.db` starts with an empty database. A short `CACHE_TTL_SECONDS` makes cache expiry easy to observe.
+
+### Option 1: Swagger UI
+
+Open `http://localhost:8000/docs`, where you can click through each endpoint, fill in request bodies, and inspect responses and headers.
+
+### Option 2: Terminal
+
+Run these commands in a second terminal window, in order. `-i` prints the response status and headers, including `X-Cache`.
+
+```bash
+B=http://localhost:8000
+```
+
+**1. Create a flag.** Returns `201 Created` with a `Location` header.
+
+```bash
+curl -i -X POST $B/flags -H 'Content-Type: application/json' \
+  -d '{"key":"checkout_v2","description":"New checkout","enabled":false}'
+```
+
+**2. Evaluate, then evaluate again.** The first call returns `X-Cache: MISS`, `reason: global`, and `enabled: false`. The repeat returns `X-Cache: HIT`.
+
+```bash
+curl -i "$B/flags/checkout_v2/evaluate?user_id=alice"
+curl -i "$B/flags/checkout_v2/evaluate?user_id=alice"
+```
+
+**3. Add an override for alice.** Returns `201 Created` and clears the flag's cached entry.
+
+```bash
+curl -i -X PUT $B/flags/checkout_v2/users/alice \
+  -H 'Content-Type: application/json' -d '{"enabled":true}'
+```
+
+**4. Evaluate alice and bob.** Alice now gets `X-Cache: MISS`, `enabled: true`, and `reason: user_override`. Bob has no override, so he still gets the global value.
+
+```bash
+curl -i "$B/flags/checkout_v2/evaluate?user_id=alice"
+curl -i "$B/flags/checkout_v2/evaluate?user_id=bob"
+```
+
+**5. Change the flag globally.** Returns `200 OK` and clears the cached entry.
+
+```bash
+curl -i -X PATCH $B/flags/checkout_v2 \
+  -H 'Content-Type: application/json' -d '{"enabled":true}'
+```
+
+**6. Trigger errors.** A duplicate key returns `409 Conflict`, an invalid key returns `422`, and a missing flag returns `404 Not Found`, each with the JSON error shape described above.
+
+```bash
+curl -i -X POST $B/flags -H 'Content-Type: application/json' -d '{"key":"checkout_v2"}'
+curl -i -X POST $B/flags -H 'Content-Type: application/json' -d '{"key":"BAD KEY"}'
+curl -i $B/flags/missing
+```
+
+### Summary of expected results
+
+| Step | Request | Expected result |
+| --- | --- | --- |
+| 1 | Create flag | `201`, `Location: /flags/checkout_v2` |
+| 2 | Evaluate twice | `MISS` then `HIT`, `reason: global`, `enabled: false` |
+| 3 | Add override for alice | `201`, cache invalidated |
+| 4 | Evaluate alice and bob | Alice `enabled: true` via `user_override`; bob uses the global value |
+| 5 | Change flag globally | `200`, cache invalidated |
+| 6 | Duplicate, invalid key, missing flag | `409`, `422`, `404` |
+
+### Automated checks
+
+```bash
+.venv/bin/ruff check .
+.venv/bin/pytest --cov=app --cov-report=term-missing
+```
+
