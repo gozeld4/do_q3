@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.models import Flag, FlagOverride
 
@@ -23,6 +23,15 @@ def create_flag(
 def get_flag_by_key(session: Session, key: str) -> Flag | None:
     statement = select(Flag).where(Flag.key == key)
     return session.scalar(statement)
+
+
+def get_flag_with_overrides(session: Session, key: str) -> Flag | None:
+    statement = (
+        select(Flag)
+        .options(joinedload(Flag.overrides))
+        .where(Flag.key == key)
+    )
+    return session.execute(statement).unique().scalar_one_or_none()
 
 
 def list_flags(

@@ -27,6 +27,44 @@ DATABASE_URL="postgresql+psycopg://user:password@localhost:5432/feature_flags" \
 
 Do not commit database credentials or `.env` files.
 
+## Evaluate a flag
+
+Evaluate a flag for one user with:
+
+```bash
+curl "http://localhost:8000/flags/checkout_v2/evaluate?user_id=user-123"
+```
+
+The response reports the effective state and where it came from:
+
+```json
+{
+  "flag": "checkout_v2",
+  "user_id": "user-123",
+  "enabled": true,
+  "reason": "user_override"
+}
+```
+
+A user override takes priority when one exists. Otherwise, the response uses
+the flag's global state and returns `global` as the reason.
+
+## Evaluation cache
+
+Evaluation snapshots are kept in a bounded in-process cache. By default, an
+entry expires after 60 seconds and the cache holds at most 1,000 flags. These
+values can be changed with `CACHE_TTL_SECONDS` and `CACHE_MAX_ENTRIES`.
+
+The service removes a flag's cached snapshot after a successful flag update or
+delete and after an override is created, updated, or deleted. The TTL is a
+safety net; explicit invalidation normally makes writes visible immediately.
+Evaluation responses include `X-Cache: HIT` or `X-Cache: MISS` for diagnostics.
+
+Each application process has its own cache. If the service runs with multiple
+workers or replicas, one process can briefly hold old data after another
+process writes. A scaled deployment should use Redis or Valkey with pub/sub or
+version-based cross-process invalidation.
+
 ## Current schema
 
 - `flags` stores each flag's key, description, global state, and timestamps.

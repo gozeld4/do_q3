@@ -55,6 +55,30 @@ def test_flag_keys_are_unique(db_session: Session) -> None:
     db_session.rollback()
 
 
+def test_get_flag_with_overrides(db_session: Session) -> None:
+    flag = repository.create_flag(
+        db_session,
+        key="checkout_v2",
+        enabled=False,
+    )
+    repository.upsert_override(
+        db_session,
+        flag=flag,
+        user_id="user-123",
+        enabled=True,
+    )
+    db_session.commit()
+    db_session.expire_all()
+
+    loaded = repository.get_flag_with_overrides(db_session, "checkout_v2")
+
+    assert loaded is not None
+    assert [(item.user_id, item.enabled) for item in loaded.overrides] == [
+        ("user-123", True)
+    ]
+    assert repository.get_flag_with_overrides(db_session, "missing") is None
+
+
 def test_override_upsert_updates_existing_row(db_session: Session) -> None:
     flag = repository.create_flag(db_session, key="checkout_v2")
     db_session.commit()

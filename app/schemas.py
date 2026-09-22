@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Annotated, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 
 class ApiModel(BaseModel):
@@ -16,8 +17,16 @@ class FlagCreate(ApiModel):
 
 
 class FlagUpdate(ApiModel):
-    description: str | None = Field(default=None, max_length=500)
-    enabled: bool | None = None
+    description: Optional[str] = Field(default=None, max_length=500)  # noqa: UP045
+    enabled: Optional[bool] = None  # noqa: UP045
+
+    @model_validator(mode="after")
+    def require_a_non_null_change(self) -> FlagUpdate:
+        if not self.model_fields_set:
+            raise ValueError("At least one field must be provided")
+        if any(getattr(self, field) is None for field in self.model_fields_set):
+            raise ValueError("Updated fields cannot be null")
+        return self
 
 
 class FlagResponse(ApiModel):
@@ -29,6 +38,13 @@ class FlagResponse(ApiModel):
     updated_at: datetime
 
 
+class FlagEvaluationResponse(ApiModel):
+    flag: str
+    user_id: str
+    enabled: bool
+    reason: Literal["user_override", "global"]
+
+
 class OverrideUpsert(ApiModel):
     enabled: bool
 
@@ -38,3 +54,9 @@ class OverrideResponse(ApiModel):
     flag_id: int
     user_id: str
     enabled: bool
+
+
+UserId = Annotated[
+    str,
+    StringConstraints(strip_whitespace=True, min_length=1, max_length=255),
+]

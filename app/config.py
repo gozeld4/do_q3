@@ -1,11 +1,13 @@
 from functools import lru_cache
 
-from pydantic import field_validator
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     database_url: str = "sqlite:///./feature_flags.db"
+    cache_ttl_seconds: float = Field(default=60, gt=0)
+    cache_max_entries: int = Field(default=1000, gt=0)
 
     @field_validator("database_url", mode="before")
     @classmethod
